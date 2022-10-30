@@ -4,54 +4,21 @@ ARG AKAUNTING_DOCKERFILE_VERSION=0.1
 ARG SUPPORTED_LOCALES="en_US.UTF-8"
 
 RUN apt-get update \
- && apt-get -y upgrade --no-install-recommends \
- && apt-get install -y \
-    build-essential \
-    imagemagick \
-    libfreetype6-dev \
-    libicu-dev \
-    libjpeg62-turbo-dev \
-    libjpeg-dev \
-    libmcrypt-dev \
-    libonig-dev \
-    libpng-dev \
-    libpq-dev \
-    libssl-dev \
-    libxml2-dev \
-    libxrender1 \
-    libzip-dev \
-    locales \
-    openssl \
-    unzip \
-    zip \
-    zlib1g-dev \
-    --no-install-recommends \
- && apt-get clean && rm -rf /var/lib/apt/lists/*
+   && apt-get -y upgrade --no-install-recommends \
+   && apt-get install --no-install-recommends -y imagemagick libfreetype6 libicu libjpeg62-turbo \
+      libjpeg libmcrypt libonig libpng libpq libssl libxml2 libxrender1 libzip locales openssl unzip zip zlib1g \
+   && apt-get clean && rm -rf /var/lib/apt/lists/* \
+   && for locale in ${SUPPORTED_LOCALES}; do \
+      sed -i 's/^# '"${locale}/${locale}/" /etc/locale.gen; done \
+   && locale-gen \
+   && docker-php-ext-configure gd --with-freetype --with-jpeg \
+   && docker-php-ext-install -j$(nproc) gd bcmath intl mbstring pcntl pdo pdo_mysql zip \
+   && mkdir -p /var/www/akaunting \
+   && curl -Lo /tmp/akaunting.zip 'https://akaunting.com/download.php?version=latest&utm_source=docker&utm_campaign=developers' \
+   && unzip /tmp/akaunting.zip -d /var/www/html \
+   && rm -f /tmp/akaunting.zip
 
-RUN for locale in ${SUPPORTED_LOCALES}; do \
-    sed -i 's/^# '"${locale}/${locale}/" /etc/locale.gen; done \
- && locale-gen
-
-RUN docker-php-ext-configure gd \
-    --with-freetype \
-    --with-jpeg \
- && docker-php-ext-install -j$(nproc) \
-    gd \
-    bcmath \
-    intl \
-    mbstring \
-    pcntl \
-    pdo \
-    pdo_mysql \
-    zip
-
-RUN mkdir -p /var/www/akaunting \
- && curl -Lo /tmp/akaunting.zip 'https://akaunting.com/download.php?version=latest&utm_source=docker&utm_campaign=developers' \
- && unzip /tmp/akaunting.zip -d /var/www/html \
- && rm -f /tmp/akaunting.zip
-
-COPY files/akaunting.sh /usr/local/bin/akaunting.sh
-COPY files/html /var/www/html
+COPY  /files/php-container/ /
 
 ENTRYPOINT ["/usr/local/bin/akaunting.sh"]
 CMD ["--start"]
